@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  compile:
+    name: Syntax & doctor (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install core deps
+        run: pip install openai python-dotenv
+      - name: Syntax check (py_compile)
+        run: python -m py_compile naraya.py core/*.py
+      - name: Doctor (offline, tanpa API key)
+        run: python naraya.py doctor
+
+  secrets-scan:
+    name: Secrets scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pastikan tidak ada rahasia ter-commit
+        run: |
+          if grep -rEn "sk-proj-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-nara-[A-Za-z0-9_-]{20,}|SUDO_PASSWORD=[^[:space:]]|TELEGRAM_BOT_TOKEN=[0-9]+:|-----BEGIN [A-Z ]*PRIVATE KEY-----" \
+               --include='*.py' --include='*.md' --include='*.txt' --include='*.json' --include='*.env*' \
+               --exclude='*.env.example' --exclude='make_release.py' --exclude='SECURITY.md' --exclude='CONTRIBUTING.md' \
+               --exclude-dir='.git' --exclude-dir='release' --exclude-dir='workflows' . ; then
+            echo "::error::Terdeteksi kemungkinan rahasia ter-commit. Hapus dan rotasi kunci tersebut."
+            exit 1
+          fi
+          echo "Bersih: tidak ada rahasia terdeteksi."
+
+  skills-lint:
+    name: Skills frontmatter lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validasi setiap SKILL.md punya name & description
+        run: |
+          python - <<'PY'
+          import re, sys, glob
+          bad = []
+          for f in glob.glob("skills/**/SKILL.md", recursive=True):
+              t = open(f, encoding="utf-8", errors="ignore").read()
+              if not re.search(r"^name\s*:", t, re.M) or not re.search(r"^description\s*:", t, re.M):
+                  bad.append(f)
+          if bad:
+              print("SKILL.md tanpa name/description:")
+              [print(" -", b) for b in bad[:50]]
+              sys.exit(1)
+          print("Semua SKILL.md valid.")
+          PY

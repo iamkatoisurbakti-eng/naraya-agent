@@ -1,0 +1,47 @@
+# ---- RAHASIA & DATA PRIBADI (JANGAN PERNAH di-commit) ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets*.json
+core/data/provider.json
+
+# Runtime data, memori, log (dibuat otomatis)
+data/
+logs/
+sessions/
+checkpoints/
+agent-outputs/
+works/
+runtime/
+.hermes/
+*.sqlite
+*.sqlite-*
+*.db
+rollout-*.jsonl
+history.jsonl
+.naraya/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node (jika ada sub-app)
+node_modules/
+
+# Folder rilis bersih (di-generate)
+release/
