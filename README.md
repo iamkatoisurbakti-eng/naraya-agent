@@ -1,7 +1,7 @@
 # Naraya-Agent 🇮🇩
 
-<!-- Ganti `your-org` dengan username/organisasi GitHub-mu setelah push. -->
-[![CI](https://github.com/your-org/naraya-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/naraya-agent/actions/workflows/ci.yml)
+<!-- Ganti `iamkatoisurbakti-eng` dengan username/organisasi GitHub-mu setelah push. -->
+[![CI](https://github.com/iamkatoisurbakti-eng/naraya-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/iamkatoisurbakti-eng/naraya-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Providers](https://img.shields.io/badge/providers-7-success.svg)](core/README_PROVIDERS.md)
@@ -48,7 +48,7 @@ Butuh Python 3.9+. **Tidak perlu pip install manual** — Naraya memasang depend
 sendiri saat pertama dijalankan.
 
 ```bash
-git clone https://github.com/your-org/naraya-agent.git
+git clone https://github.com/iamkatoisurbakti-eng/naraya-agent.git
 cd naraya-agent
 python naraya.py install      # pasang dependensi + daftarkan perintah global + onboarding
 ```

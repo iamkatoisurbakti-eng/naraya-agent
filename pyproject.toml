@@ -23,9 +23,9 @@ full = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-org/naraya-agent"
-Repository = "https://github.com/your-org/naraya-agent"
-Issues = "https://github.com/your-org/naraya-agent/issues"
+Homepage = "https://github.com/iamkatoisurbakti-eng/naraya-agent"
+Repository = "https://github.com/iamkatoisurbakti-eng/naraya-agent"
+Issues = "https://github.com/iamkatoisurbakti-eng/naraya-agent/issues"
 
 [project.scripts]
 naraya = "naraya:main"
