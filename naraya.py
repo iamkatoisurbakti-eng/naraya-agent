@@ -165,14 +165,12 @@ def print_banner():
     print("  " + _c("1", "Naraya Agent") + _c("2", "  |  ") + _c("36;1", prov)
           + _c("2", "  |  ") + _c("36;1", mdl))
     print(_rule())
-    t, s, a = _stats()
+    t, s, _a = _stats()
     seg = []
     if t is not None:
         seg.append(_c("36;1", f"{t}") + _c("2", " tools"))
     if s is not None:
         seg.append(_c("36;1", f"{s}") + _c("2", " skills"))
-    if a is not None:
-        seg.append(_c("36;1", f"{a}") + _c("2", " agen"))
     if seg:
         print("  " + _c("2", "  ·  ").join(seg))
     print(_rule())
@@ -497,9 +495,7 @@ def cmd_chat(args):
     cfg = providers.resolve()
     prof = __import__('paths').profile()
     prof_txt = _c("2", f"  ·  profil {prof}") if prof != "default" else ""
-    print("  " + _c("2", "sesi ") + _c("0", sess['id'])
-          + _c("2", "  ·  ") + _c("36", f"{cfg['name']}/{cfg['model'] or 'default'}")
-          + prof_txt)
+    print("  " + _rainbow(f"[Sesi {sess['id']}]") + prof_txt)
     cont = f"  ·  lanjut {len(sess['messages'])} pesan" if sess.get("messages") else ""
     print("  " + _c("2", "ketik ") + _c("1", "/help") + _c("2", " untuk perintah")
           + _c("2", cont))
