@@ -49,8 +49,10 @@ def _reply(text: str, chat_id) -> str:
     except Exception:
         pass
     prompt = f"Memori:\n{mem}\n\nPesan: {text}" if mem else text
+    clarify_rule = ("\n\nPENTING: bila permintaan belum lengkap detailnya, JANGAN langsung kerjakan — "
+                    "ajukan 2-4 pertanyaan klarifikasi singkat dulu, kecuali user bilang 'langsung saja'.")
     try:
-        ans = llm.chat(prompt, system=prompt_store.get_active_prompt())
+        ans = llm.chat(prompt, system=prompt_store.get_active_prompt() + clarify_rule)
     except Exception as exc:
         ans = f"[error] {exc}"
     if add_memory:

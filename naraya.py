@@ -43,6 +43,14 @@ __version__ = "0.1.0"
 
 OPTS: dict = {}   # flag global: continue, resume, (profile/yolo via env)
 
+CLARIFY_RULE = (
+    "\n\nPENTING — KLARIFIKASI DULU: Jika permintaan pengguna belum lengkap detailnya "
+    "(mis. 'buatkan landing page' tanpa tema, judul, gaya/desain, target pengguna, atau isi konten), "
+    "JANGAN langsung mengerjakan. Ajukan dulu 2-4 pertanyaan klarifikasi singkat dalam Bahasa Indonesia, "
+    "lalu tunggu jawaban. Kerjakan hanya setelah detail cukup, kecuali pengguna eksplisit bilang "
+    "'langsung saja' atau 'pakai asumsimu'."
+)
+
 BANNER = """
   ███╗   ██╗ █████╗ ██████╗  █████╗ ██╗   ██╗ █████╗
   ████╗  ██║██╔══██╗██╔══██╗██╔══██╗╚██╗ ██╔╝██╔══██╗
@@ -171,6 +179,20 @@ def cmd_install(args):
     """Onboarding utama: pasang dependensi + daftarkan perintah global `naraya` + wizard."""
     _bootstrap(force=True)
     cmd_setup(args)
+
+
+def cmd_update(args):
+    """Update Naraya dari git lalu pasang dependensi baru (bila ada)."""
+    import subprocess
+    print(_c("36", "Memperbarui Naraya dari GitHub ..."))
+    rc = subprocess.call(["git", "-C", str(ROOT), "pull", "--ff-only"])
+    if rc != 0:
+        print(_c("33", "git pull gagal — mungkin ada perubahan lokal. Pilihan:"))
+        print("  git -C \"%s\" stash && git -C \"%s\" pull --ff-only" % (ROOT, ROOT))
+        print("  atau (buang perubahan lokal): git -C \"%s\" fetch origin && git -C \"%s\" reset --hard origin/main" % (ROOT, ROOT))
+        return
+    _bootstrap(force=True)
+    print(_c("32", "Update selesai.") + " Cek: naraya doctor")
 
 
 def cmd_setup(args):
@@ -405,11 +427,17 @@ def cmd_chat(args):
 
     print_banner()
     cfg = providers.resolve()
-    print(_c("2", f"  sesi {sess['id']} · {cfg['name']}/{cfg['model'] or 'default'} · profil {__import__('paths').profile()} · /help"))
-    if sess.get("messages"):
-        print(_c("2", f"  (melanjutkan {len(sess['messages'])} pesan)"))
+    prof = __import__('paths').profile()
+    prof_txt = _c("2", f"  ·  profil {prof}") if prof != "default" else ""
+    print("  " + _c("2", "sesi ") + _c("0", sess['id'])
+          + _c("2", "  ·  ") + _c("36", f"{cfg['name']}/{cfg['model'] or 'default'}")
+          + prof_txt)
+    cont = f"  ·  lanjut {len(sess['messages'])} pesan" if sess.get("messages") else ""
+    print("  " + _c("2", "ketik ") + _c("1", "/help") + _c("2", " untuk perintah")
+          + _c("2", cont))
+    print(_rule())
     print()
-    sysp = prompt_store.get_active_prompt()
+    sysp = prompt_store.get_active_prompt() + CLARIFY_RULE
 
     while True:
         try:
@@ -431,17 +459,33 @@ def cmd_chat(args):
                 print(f"  {s['id']}  ({s['turns']} pesan)  {s['title']}")
             continue
         if low in ("/models", "/model"):
-            _pick_model(); sysp = prompt_store.get_active_prompt(); continue
+            _pick_model(); sysp = prompt_store.get_active_prompt() + CLARIFY_RULE; continue
         if low.startswith("/model"):           # /model <nama-model>
-            cmd_models(msg.split(maxsplit=1)[1:]); sysp = prompt_store.get_active_prompt(); continue
+            cmd_models(msg.split(maxsplit=1)[1:]); sysp = prompt_store.get_active_prompt() + CLARIFY_RULE; continue
         if low in ("/providers", "/provider"):
             _pick_provider(); cfg = providers.resolve(); continue
         if low.startswith("/provider"):        # /provider <nama>
             cmd_providers(msg.split()[1:]); cfg = providers.resolve(); continue
         if low.startswith("/work"):
-            goal = msg[5:].strip()
+            force = msg.lstrip().startswith("/work!")
+            goal = (msg.split("!", 1)[1] if force else msg[5:]).strip()
             if not goal:
-                print(_c("2", "  pakai: /work <tugas>")); continue
+                print(_c("2", "  pakai: /work <tugas>   (/work! untuk lewati klarifikasi)")); continue
+            if not force:
+                import clarify
+                need, qs = clarify.assess(goal)
+                if need and qs:
+                    print(_c("33", "  Butuh detail dulu (ENTER untuk lewati tiap pertanyaan):"))
+                    extra = []
+                    for q in qs:
+                        try:
+                            a = input(_c("36", f"  • {q}\n    > ")).strip()
+                        except (EOFError, KeyboardInterrupt):
+                            a = ""; print()
+                        if a:
+                            extra.append(f"- {q} {a}")
+                    if extra:
+                        goal += "\n\nDetail tambahan:\n" + "\n".join(extra)
             import multi_agent
             ans = multi_agent.work(goal)
         else:
@@ -468,9 +512,25 @@ def cmd_work(args):
             pass
     goal = " ".join(a for a in args if not a.startswith("--") and not a.isdigit()) \
         or " ".join(a for a in args if not a.startswith("--"))
-    goal = " ".join(a for a in args if a not in ("--seq", "--no-revise", "--budget", str(budget)))
+    force = "--yes" in args or "-y" in args
+    goal = " ".join(a for a in args if a not in ("--seq", "--no-revise", "--budget", "--yes", "-y", str(budget)))
     if not goal.strip():
-        print('Pakai: naraya work "deskripsi tugas"'); return
+        print('Pakai: naraya work "deskripsi tugas"   (tambah --yes untuk lewati klarifikasi)'); return
+    if not force:
+        import clarify
+        need, qs = clarify.assess(goal)
+        if need and qs:
+            print("Butuh detail dulu (jawab; ENTER lewati tiap pertanyaan; atau pakai --yes):")
+            extra = []
+            for q in qs:
+                try:
+                    a = input(f"  • {q}\n    > ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    a = ""; print()
+                if a:
+                    extra.append(f"- {q} {a}")
+            if extra:
+                goal += "\n\nDetail tambahan:\n" + "\n".join(extra)
     print(f"(mode={mode} · revise={revise} · budget={budget})\n")
     res = multi_agent.orchestrate(goal, mode=mode, revise=revise, context_budget=budget,
                                   on_event=lambda ev: print(f"  [{ev['status']}] {ev['agent']}"
@@ -532,7 +592,7 @@ def cmd_sessions(args):
 
 
 COMMANDS = {
-    "setup": cmd_setup, "install": cmd_install, "version": cmd_version, "doctor": cmd_doctor,
+    "setup": cmd_setup, "install": cmd_install, "update": cmd_update, "version": cmd_version, "doctor": cmd_doctor,
     "provider": cmd_provider, "providers": cmd_providers, "model": cmd_model, "models": cmd_models,
     "gateway": cmd_gateway, "coders": cmd_coders, "install-coders": cmd_install_coders,
     "chat": cmd_chat, "work": cmd_work, "agent": cmd_agent, "sessions": cmd_sessions,
@@ -540,7 +600,7 @@ COMMANDS = {
 }
 
 # Perintah ringan yang TIDAK memicu auto-install
-_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "sessions"}
+_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "update", "sessions"}
 
 
 def _parse_global(argv):

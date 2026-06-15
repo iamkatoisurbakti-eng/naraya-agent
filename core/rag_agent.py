@@ -120,6 +120,10 @@ import prompt_store  # prompt aktif hasil evolusi (persisten)
 TOOL_GUIDANCE = """
 
 PANDUAN TOOL:
+- KLARIFIKASI DULU (WAJIB): jika permintaan belum lengkap detailnya (mis. "buatkan landing page"
+  tanpa tema, judul, gaya/desain, target pengguna, atau isi konten), JANGAN langsung mengerjakan.
+  Ajukan dulu 2-4 pertanyaan klarifikasi singkat dan TUNGGU jawaban. Baru kerjakan setelah detail
+  cukup — kecuali pengguna eksplisit bilang "langsung saja"/"pakai asumsimu".
 - MODE KERJA UTAMA: untuk SETIAP pekerjaan nyata (membangun, merancang, menganalisis,
   atau tugas multi-langkah) WAJIB jalankan orkestrasi_multiagent terlebih dahulu, lalu
   rangkum hasilnya. Hanya pertanyaan obrolan ringan yang boleh dijawab langsung.
