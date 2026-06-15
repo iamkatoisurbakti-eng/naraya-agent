@@ -46,6 +46,12 @@ def _ftok(n: int) -> str:
     """Format token ringkas: 1234 -> 1.2k."""
     return f"{n/1000:.1f}k" if n >= 1000 else str(n)
 
+
+def _fmt_dt(sec: float) -> str:
+    """Format durasi: 65 -> '1m 5s', 8 -> '8s'."""
+    s = int(round(sec))
+    return f"{s // 60}m {s % 60}s" if s >= 60 else f"{s}s"
+
 ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)                                  # agar path relatif (data/, core/eval) konsisten
 sys.path.insert(0, str(ROOT / "core"))          # modul inti ada di core/
@@ -578,14 +584,21 @@ def cmd_chat(args):
                 _c("2", f"    [{ev['status']}] {ev['agent']}" + (f" rev{ev['round']}" if ev.get('round') else ""))))
             print(_c("2", f"  ✓ selesai {time.time() - t0:.1f}s"))
             ans = _finish_project(res)
+            print("\n" + ans + "\n")
+            session_store.append(sess, "user", msg)
+            session_store.append(sess, "assistant", ans)
+            continue
         else:
             hist = session_store.history_text(sess)
             prompt = (f"Riwayat percakapan:\n{hist}\n\nPesan baru: {msg}" if hist else msg)
+            t0 = time.time()
             try:
                 ans = llm.chat(prompt, system=sysp)
             except Exception as e:
                 ans = f"[error] {e}"
+            dt = time.time() - t0
         print("\n" + ans + "\n")
+        print(_c("2", f"({_fmt_dt(dt)} · ↓ {_ftok(_toks(ans))} tokens)") + "\n")
         session_store.append(sess, "user", msg)
         session_store.append(sess, "assistant", ans)
 
