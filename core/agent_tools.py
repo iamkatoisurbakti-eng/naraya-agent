@@ -675,6 +675,7 @@ TOOL_NAMES = [
     "daftar_provider", "ganti_provider",
     "claude_code", "codex",
     "tugas_tetapkan", "tugas_selesai", "tugas_lihat",
+    "baca_file", "tulis_file", "tambah_file", "edit_file", "hapus_file", "daftar_file", "buat_folder", "pindah_file",
     "mcp_daftar_server", "mcp_daftar_tool", "mcp_panggil", "mcp_tambah_server",
 ]
 TOOL_COUNT = len(TOOL_NAMES)

@@ -394,6 +394,62 @@ def tugas_lihat() -> str:
     return todo.render()
 
 
+@function_tool
+def baca_file(path: str) -> str:
+    """Baca isi sebuah berkas."""
+    import file_tools
+    return file_tools.read_file(path)
+
+
+@function_tool
+def tulis_file(path: str, content: str) -> str:
+    """Buat/timpa berkas dengan isi tertentu."""
+    import file_tools
+    return file_tools.write_file(path, content)
+
+
+@function_tool
+def tambah_file(path: str, content: str) -> str:
+    """Tambahkan teks ke akhir berkas (buat bila belum ada)."""
+    import file_tools
+    return file_tools.append_file(path, content)
+
+
+@function_tool
+def edit_file(path: str, find: str, replace: str) -> str:
+    """Edit berkas: ganti teks `find` menjadi `replace`."""
+    import file_tools
+    return file_tools.edit_file(path, find, replace)
+
+
+@function_tool
+def hapus_file(path: str) -> str:
+    """Hapus berkas atau folder (di dalam folder kerja)."""
+    import file_tools
+    return file_tools.delete_file(path)
+
+
+@function_tool
+def daftar_file(path: str = ".") -> str:
+    """Lihat daftar isi folder."""
+    import file_tools
+    return file_tools.list_dir(path)
+
+
+@function_tool
+def buat_folder(path: str) -> str:
+    """Buat folder baru."""
+    import file_tools
+    return file_tools.make_dir(path)
+
+
+@function_tool
+def pindah_file(src: str, dst: str) -> str:
+    """Pindah/ganti nama berkas atau folder."""
+    import file_tools
+    return file_tools.move_file(src, dst)
+
+
 ALL_TOOLS = [
     # orkestrasi multi-agen (mode kerja utama)
     orkestrasi_multiagent,
@@ -419,6 +475,8 @@ ALL_TOOLS = [
     claude_code, codex,
     # to-do
     tugas_tetapkan, tugas_selesai, tugas_lihat,
+    # berkas
+    baca_file, tulis_file, tambah_file, edit_file, hapus_file, daftar_file, buat_folder, pindah_file,
     # MCP
     mcp_daftar_server, mcp_daftar_tool, mcp_panggil, mcp_tambah_server,
 ]
