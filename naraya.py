@@ -32,8 +32,14 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 import asyncio
 from pathlib import Path
+
+
+def _toks(s: str) -> int:
+    """Estimasi kasar jumlah token (~4 char/token)."""
+    return max(0, len(s or "") // 4)
 
 ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)                                  # agar path relatif (data/, core/eval) konsisten
@@ -68,6 +74,34 @@ def _c(code: str, s: str) -> str:
     return f"\033[{code}m{s}\033[0m"
 
 
+# Palet pelangi (256-color) untuk gradien horizontal banner.
+_RAINBOW = [196, 202, 208, 214, 220, 226, 190, 154, 118, 82, 46, 48,
+            50, 51, 45, 39, 33, 27, 63, 99, 135, 171, 207, 201]
+
+
+def _rainbow(text: str) -> str:
+    """Warnai teks dengan gradien pelangi per kolom (nonaktif bila bukan TTY)."""
+    if not sys.stdout.isatty() or os.getenv("NO_COLOR"):
+        return text
+    n = len(_RAINBOW)
+    lines = []
+    for line in text.split("\n"):
+        if not line.strip():
+            lines.append(line)
+            continue
+        width = max(1, len(line) - 1)
+        buf = []
+        for i, ch in enumerate(line):
+            if ch == " ":
+                buf.append(" ")
+            else:
+                color = _RAINBOW[int(i / width * (n - 1))]
+                buf.append(f"\033[1;38;5;{color}m{ch}")
+        buf.append("\033[0m")
+        lines.append("".join(buf))
+    return "\n".join(lines)
+
+
 def _stats():
     """Hitung total tools / skills / agen secara ringan & aman."""
     tools = skills = agents = None
@@ -94,7 +128,7 @@ def _rule(width: int = 54) -> str:
 
 
 def print_banner():
-    print(_c("36;1", BANNER))
+    print(_rainbow(BANNER))
     print("  " + _c("1", "Naraya-Agent") + _c("2", f"   v{__version__}"))
     print(_rule())
     t, s, a = _stats()
@@ -441,7 +475,7 @@ def cmd_chat(args):
 
     while True:
         try:
-            msg = input(_c("32", "kamu > ")).strip()
+            msg = input(_c("32;1", "❯ ")).strip()
         except (EOFError, KeyboardInterrupt):
             print(); break
         if not msg:
@@ -487,15 +521,25 @@ def cmd_chat(args):
                     if extra:
                         goal += "\n\nDetail tambahan:\n" + "\n".join(extra)
             import multi_agent
-            ans = multi_agent.work(goal)
+            print(_c("2", f"  ⋯ orkestrasi · {cfg['name']}/{cfg['model'] or 'default'} · konteks ~{_toks(sysp + goal)} tok"))
+            t0 = time.time()
+            ans = multi_agent.work(goal, on_event=lambda ev: print(
+                _c("2", f"    [{ev['status']}] {ev['agent']}" + (f" rev{ev['round']}" if ev.get('round') else ""))))
+            print(_c("2", f"  ✓ selesai {time.time() - t0:.1f}s"))
         else:
             hist = session_store.history_text(sess)
             prompt = (f"Riwayat percakapan:\n{hist}\n\nPesan baru: {msg}" if hist else msg)
+            ctx = _toks(sysp) + _toks(prompt)
+            print(_c("2", f"  ⋯ {cfg['name']}/{cfg['model'] or 'default'} · konteks ~{ctx} tok"), flush=True)
+            t0 = time.time()
             try:
                 ans = llm.chat(prompt, system=sysp)
             except Exception as e:
                 ans = f"[error] {e}"
-        print("\n" + _c("36", "naraya > ") + ans + "\n")
+            dt = time.time() - t0
+            sess_tok = sum(_toks(m.get("content", "")) for m in sess.get("messages", [])) + _toks(msg) + _toks(ans)
+            print(_c("2", f"  ✓ {dt:.1f}s · jawaban ~{_toks(ans)} tok · konteks sesi ~{sess_tok} tok"))
+        print("\n" + ans + "\n")
         session_store.append(sess, "user", msg)
         session_store.append(sess, "assistant", ans)
 
