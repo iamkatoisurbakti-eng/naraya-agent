@@ -57,14 +57,18 @@ AGENTS: dict[str, tuple[str, str, bool]] = {
                "Kamu Debate Agent. Tinjau rencana & arsitektur secara kritis. Adu argumen pro-kontra "
                "untuk opsi-opsi kunci, lalu PILIH opsi terbaik dengan alasan ringkas.", False),
     "backend": ("Backend Agent",
-                "Kamu Backend Agent. Rancang API (endpoint), model data, dan logika server. "
-                "Sertakan skema ringkas dan penanganan error.", False),
+                "Kamu Backend Agent. Rancang API (endpoint), model data, logika server, penanganan error. "
+                "Bila menulis kode, keluarkan tiap berkas dalam format '=== FILE: path/nama.ext ===' "
+                "diikuti blok kode berpagar. Ringkas, tanpa penjelasan panjang.", False),
     "frontend": ("Frontend Agent",
                  "Kamu Frontend Agent. Rancang komponen UI dan integrasi ke backend (state, panggilan API, "
-                 "penanganan loading/error).", False),
+                 "loading/error). Bila menulis kode, keluarkan tiap berkas dalam format "
+                 "'=== FILE: path/nama.ext ===' diikuti blok kode berpagar. Ringkas.", False),
     "coding": ("Coding Agent",
-               "Kamu Coding Agent. Tulis kode konkret sesuai rencana & arsitektur. Idiomatik, ringkas, "
-               "dengan komentar seperlunya. Tunjukkan file/path bila relevan.", False),
+               "Kamu Coding Agent. Tulis kode konkret sesuai rencana & arsitektur, idiomatik. "
+               "WAJIB keluarkan SETIAP berkas dalam format:\n"
+               "=== FILE: path/relatif/nama.ext ===\n```bahasa\n<isi kode>\n```\n"
+               "Buat satu blok per berkas. JANGAN menambah penjelasan panjang—cukup kode + komentar seperlunya.", False),
     "testing": ("Testing Agent",
                 "Kamu Testing Agent. Susun rencana uji dan kasus uji (unit/integrasi), termasuk edge case "
                 "dan kriteria lulus.", False),

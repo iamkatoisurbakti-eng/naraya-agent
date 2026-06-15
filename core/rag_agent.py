@@ -127,6 +127,8 @@ PANDUAN TOOL:
 - MODE KERJA UTAMA: untuk SETIAP pekerjaan nyata (membangun, merancang, menganalisis,
   atau tugas multi-langkah) WAJIB jalankan orkestrasi_multiagent terlebih dahulu, lalu
   rangkum hasilnya. Hanya pertanyaan obrolan ringan yang boleh dijawab langsung.
+- TO-DO: untuk tugas multi-langkah, buat daftar dengan tugas_tetapkan dulu, lalu tandai
+  tugas_selesai tiap langkah beres (transparan ke pengguna).
 - Operasi terminal/file ringan -> gunakan tool jalankan_command_aman.
 - Tugas kompleks/multi-langkah -> gunakan tool jalankan_orchestrator.
 - Mencari data/memori Hermes yang relevan -> gunakan tool cari_data_hermes.
@@ -371,6 +373,27 @@ def codex(prompt: str) -> str:
     return coding_cli.codex(prompt)
 
 
+@function_tool
+def tugas_tetapkan(items: list) -> str:
+    """Buat/ganti daftar to-do (list teks langkah). Pakai untuk merencanakan tugas multi-langkah."""
+    import todo
+    return todo.render(todo.set_items(items))
+
+
+@function_tool
+def tugas_selesai(nomor: int) -> str:
+    """Tandai item to-do nomor ke-N sebagai selesai."""
+    import todo
+    return todo.render(todo.done(nomor))
+
+
+@function_tool
+def tugas_lihat() -> str:
+    """Lihat daftar to-do saat ini beserta statusnya."""
+    import todo
+    return todo.render()
+
+
 ALL_TOOLS = [
     # orkestrasi multi-agen (mode kerja utama)
     orkestrasi_multiagent,
@@ -394,6 +417,8 @@ ALL_TOOLS = [
     daftar_provider, ganti_provider,
     # agen coding eksternal
     claude_code, codex,
+    # to-do
+    tugas_tetapkan, tugas_selesai, tugas_lihat,
     # MCP
     mcp_daftar_server, mcp_daftar_tool, mcp_panggil, mcp_tambah_server,
 ]

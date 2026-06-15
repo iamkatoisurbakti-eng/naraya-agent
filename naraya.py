@@ -484,7 +484,24 @@ def cmd_chat(args):
         if low in ("/exit", "/quit", "exit", "quit"):
             break
         if low == "/help":
-            print(_c("2", "  /new  /sessions  /models  /providers  /work <goal>  /exit"))
+            print(_c("2", "  /new  /sessions  /todo  /models  /providers  /work <goal>  /exit"))
+            continue
+        if low == "/todo" or low.startswith("/todo "):
+            import todo
+            parts = msg.split()
+            if len(parts) == 1:
+                print(todo.render())
+            elif parts[1] == "add" and len(parts) > 2:
+                print(todo.render(todo.add(msg.split(maxsplit=2)[2])))
+            elif parts[1] == "done" and len(parts) > 2:
+                try:
+                    print(todo.render(todo.done(int(parts[2]))))
+                except ValueError:
+                    print(_c("2", "  pakai: /todo done <nomor>"))
+            elif parts[1] == "clear":
+                todo.clear(); print(_c("2", "  to-do dikosongkan"))
+            else:
+                print(todo.render())
             continue
         if low == "/new":
             sess = session_store.create(); print(_c("2", f"  sesi baru: {sess['id']}")); continue
@@ -523,9 +540,10 @@ def cmd_chat(args):
             import multi_agent
             print(_c("2", f"  ⋯ orkestrasi · {cfg['name']}/{cfg['model'] or 'default'} · konteks ~{_toks(sysp + goal)} tok"))
             t0 = time.time()
-            ans = multi_agent.work(goal, on_event=lambda ev: print(
+            res = multi_agent.orchestrate(goal, revise=True, on_event=lambda ev: print(
                 _c("2", f"    [{ev['status']}] {ev['agent']}" + (f" rev{ev['round']}" if ev.get('round') else ""))))
             print(_c("2", f"  ✓ selesai {time.time() - t0:.1f}s"))
+            ans = _finish_project(res)
         else:
             hist = session_store.history_text(sess)
             prompt = (f"Riwayat percakapan:\n{hist}\n\nPesan baru: {msg}" if hist else msg)
@@ -542,6 +560,26 @@ def cmd_chat(args):
         print("\n" + ans + "\n")
         session_store.append(sess, "user", msg)
         session_store.append(sess, "assistant", ans)
+
+
+def _finish_project(res: dict) -> str:
+    """Tulis berkas hasil ke workspace/ dan kembalikan RINGKASAN singkat (tanpa kode utuh)."""
+    import workspace_writer
+    info = workspace_writer.write_project(res)
+    lines = [_c("32;1", "✓ Project siap")
+             + _c("2", f"  ·  {res.get('mode','?')} · {len(res.get('agents', []))} agen · revisi {len(res.get('revisions', []))}")]
+    lines.append(_c("1", f"  📁 {info['dir']}"))
+    if info["files"]:
+        for f in info["files"]:
+            lines.append(_c("36", f"   + {f['path']}") + _c("2", f"  ({f['bytes']} B)"))
+    else:
+        lines.append(_c("33", "   (tidak ada berkas kode terdeteksi)"))
+    lines.append(_c("2", f"   laporan lengkap → {info['dir']}/REPORT.md"))
+    summ = (res.get("summary") or "").strip()
+    if summ:
+        lines.append("")
+        lines.append(_c("2", "  Ringkasan: ") + summ[:400])
+    return "\n".join(lines)
 
 
 def cmd_work(args):
@@ -577,9 +615,9 @@ def cmd_work(args):
                 goal += "\n\nDetail tambahan:\n" + "\n".join(extra)
     print(f"(mode={mode} · revise={revise} · budget={budget})\n")
     res = multi_agent.orchestrate(goal, mode=mode, revise=revise, context_budget=budget,
-                                  on_event=lambda ev: print(f"  [{ev['status']}] {ev['agent']}"
-                                                            + (f" rev{ev['round']}" if ev['round'] else "")))
-    print("\n" + multi_agent.format_report(res))
+                                  on_event=lambda ev: print(_c("2", f"  [{ev['status']}] {ev['agent']}"
+                                                            + (f" rev{ev['round']}" if ev['round'] else ""))))
+    print("\n" + _finish_project(res))
 
 
 def cmd_agent(args):
@@ -624,6 +662,26 @@ def cmd_skills(args):
             print("  -", s["name"])
 
 
+def cmd_todo(args):
+    import todo
+    if not args:
+        print(todo.render()); return
+    sub = args[0]
+    if sub == "add" and len(args) > 1:
+        print(todo.render(todo.add(" ".join(args[1:]))))
+    elif sub == "done" and len(args) > 1:
+        try:
+            print(todo.render(todo.done(int(args[1]))))
+        except ValueError:
+            print("pakai: naraya todo done <nomor>")
+    elif sub == "set" and len(args) > 1:
+        print(todo.render(todo.set_items([x.strip() for x in " ".join(args[1:]).split(";") if x.strip()])))
+    elif sub == "clear":
+        todo.clear(); print("To-do dikosongkan.")
+    else:
+        print(todo.render())
+
+
 def cmd_sessions(args):
     import session_store
     rows = session_store.list_sessions()
@@ -639,12 +697,12 @@ COMMANDS = {
     "setup": cmd_setup, "install": cmd_install, "update": cmd_update, "version": cmd_version, "doctor": cmd_doctor,
     "provider": cmd_provider, "providers": cmd_providers, "model": cmd_model, "models": cmd_models,
     "gateway": cmd_gateway, "coders": cmd_coders, "install-coders": cmd_install_coders,
-    "chat": cmd_chat, "work": cmd_work, "agent": cmd_agent, "sessions": cmd_sessions,
+    "chat": cmd_chat, "work": cmd_work, "agent": cmd_agent, "sessions": cmd_sessions, "todo": cmd_todo,
     "eval": cmd_eval, "learn": cmd_learn, "daemon": cmd_daemon, "skills": cmd_skills,
 }
 
 # Perintah ringan yang TIDAK memicu auto-install
-_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "update", "sessions"}
+_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "update", "sessions", "todo"}
 
 
 def _parse_global(argv):

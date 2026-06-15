@@ -674,6 +674,7 @@ TOOL_NAMES = [
     "rl_select", "rl_feedback",
     "daftar_provider", "ganti_provider",
     "claude_code", "codex",
+    "tugas_tetapkan", "tugas_selesai", "tugas_lihat",
     "mcp_daftar_server", "mcp_daftar_tool", "mcp_panggil", "mcp_tambah_server",
 ]
 TOOL_COUNT = len(TOOL_NAMES)
