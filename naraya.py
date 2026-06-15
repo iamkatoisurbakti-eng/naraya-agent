@@ -41,6 +41,11 @@ def _toks(s: str) -> int:
     """Estimasi kasar jumlah token (~4 char/token)."""
     return max(0, len(s or "") // 4)
 
+
+def _ftok(n: int) -> str:
+    """Format token ringkas: 1234 -> 1.2k."""
+    return f"{n/1000:.1f}k" if n >= 1000 else str(n)
+
 ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)                                  # agar path relatif (data/, core/eval) konsisten
 sys.path.insert(0, str(ROOT / "core"))          # modul inti ada di core/
@@ -127,9 +132,38 @@ def _rule(width: int = 54) -> str:
     return _c("2", "  " + "─" * width)
 
 
+def _print_columns(items, cols: int = 3, indent: str = "  ") -> None:
+    """Cetak daftar dalam beberapa kolom rapi."""
+    items = list(items)
+    if not items:
+        return
+    w = max(len(str(x)) for x in items) + 2
+    for i in range(0, len(items), cols):
+        row = items[i:i + cols]
+        print(indent + "".join(str(x).ljust(w) for x in row).rstrip())
+
+
+def _boxed_input(width: int = 58) -> str:
+    """Input chat pengguna di dalam kotak."""
+    print(_c("36", "╭" + "─" * width + "╮"))
+    try:
+        s = input(_c("36", "│ ") + _c("32;1", "❯ "))
+    finally:
+        print(_c("36", "╰" + "─" * width + "╯"))
+    return s
+
+
 def print_banner():
     print(_rainbow(BANNER))
-    print("  " + _c("1", "Naraya-Agent") + _c("2", f"   v{__version__}"))
+    prov, mdl = "?", "?"
+    try:
+        import providers
+        cfg = providers.resolve()
+        prov, mdl = cfg["name"], (cfg["model"] or "default")
+    except Exception:
+        pass
+    print("  " + _c("1", "Naraya Agent") + _c("2", "  |  ") + _c("36;1", prov)
+          + _c("2", "  |  ") + _c("36;1", mdl))
     print(_rule())
     t, s, a = _stats()
     seg = []
@@ -475,7 +509,7 @@ def cmd_chat(args):
 
     while True:
         try:
-            msg = input(_c("32;1", "❯ ")).strip()
+            msg = _boxed_input().strip()
         except (EOFError, KeyboardInterrupt):
             print(); break
         if not msg:
@@ -484,8 +518,12 @@ def cmd_chat(args):
         if low in ("/exit", "/quit", "exit", "quit"):
             break
         if low == "/help":
-            print(_c("2", "  /new  /sessions  /todo  /models  /providers  /work <goal>  /exit"))
+            print(_c("2", "  /new  /sessions  /todo  /tools  /skills  /models  /providers  /work <goal>  /exit"))
             continue
+        if low == "/tools":
+            cmd_tools([]); continue
+        if low == "/skills" or low.startswith("/skills "):
+            cmd_skills(msg.split()[1:]); continue
         if low == "/todo" or low.startswith("/todo "):
             import todo
             parts = msg.split()
@@ -538,7 +576,7 @@ def cmd_chat(args):
                     if extra:
                         goal += "\n\nDetail tambahan:\n" + "\n".join(extra)
             import multi_agent
-            print(_c("2", f"  ⋯ orkestrasi · {cfg['name']}/{cfg['model'] or 'default'} · konteks ~{_toks(sysp + goal)} tok"))
+            print(_c("2", f"  ⋯ {cfg['model'] or cfg['name']} · ctx {_ftok(_toks(sysp + goal))}"))
             t0 = time.time()
             res = multi_agent.orchestrate(goal, revise=True, on_event=lambda ev: print(
                 _c("2", f"    [{ev['status']}] {ev['agent']}" + (f" rev{ev['round']}" if ev.get('round') else ""))))
@@ -547,16 +585,10 @@ def cmd_chat(args):
         else:
             hist = session_store.history_text(sess)
             prompt = (f"Riwayat percakapan:\n{hist}\n\nPesan baru: {msg}" if hist else msg)
-            ctx = _toks(sysp) + _toks(prompt)
-            print(_c("2", f"  ⋯ {cfg['name']}/{cfg['model'] or 'default'} · konteks ~{ctx} tok"), flush=True)
-            t0 = time.time()
             try:
                 ans = llm.chat(prompt, system=sysp)
             except Exception as e:
                 ans = f"[error] {e}"
-            dt = time.time() - t0
-            sess_tok = sum(_toks(m.get("content", "")) for m in sess.get("messages", [])) + _toks(msg) + _toks(ans)
-            print(_c("2", f"  ✓ {dt:.1f}s · jawaban ~{_toks(ans)} tok · konteks sesi ~{sess_tok} tok"))
         print("\n" + ans + "\n")
         session_store.append(sess, "user", msg)
         session_store.append(sess, "assistant", ans)
@@ -651,15 +683,28 @@ def cmd_daemon(args):
     naraya_daemon.main()
 
 
+def cmd_tools(args):
+    import agent_tools
+    names = sorted(agent_tools.TOOL_NAMES)
+    print(_c("1", f"{len(names)} tools:") + "\n")
+    _print_columns(names, cols=3)
+
+
 def cmd_skills(args):
     import skills_index
     if args:
-        print(skills_index.relevant_text(" ".join(args), k=10))
-    else:
-        sk = skills_index.load_skills()
-        print(f"{len(sk)} skill terindeks. Contoh:")
-        for s in sk[:20]:
-            print("  -", s["name"])
+        print(skills_index.relevant_text(" ".join(args), k=15))
+        return
+    from collections import defaultdict
+    skills = skills_index.load_skills()
+    groups = defaultdict(list)
+    for s in skills:
+        groups[(s.get("category") or "lainnya").strip() or "lainnya"].append(s.get("name", ""))
+    print(_c("1", f"{len(skills)} skills") + _c("2", f" · {len(groups)} kategori"))
+    for cat in sorted(groups):
+        items = sorted(x for x in groups[cat] if x)
+        print("\n" + _c("36;1", cat) + _c("2", f"  ({len(items)})"))
+        _print_columns(items, cols=3)
 
 
 def cmd_todo(args):
@@ -698,11 +743,11 @@ COMMANDS = {
     "provider": cmd_provider, "providers": cmd_providers, "model": cmd_model, "models": cmd_models,
     "gateway": cmd_gateway, "coders": cmd_coders, "install-coders": cmd_install_coders,
     "chat": cmd_chat, "work": cmd_work, "agent": cmd_agent, "sessions": cmd_sessions, "todo": cmd_todo,
-    "eval": cmd_eval, "learn": cmd_learn, "daemon": cmd_daemon, "skills": cmd_skills,
+    "eval": cmd_eval, "learn": cmd_learn, "daemon": cmd_daemon, "skills": cmd_skills, "tools": cmd_tools,
 }
 
 # Perintah ringan yang TIDAK memicu auto-install
-_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "update", "sessions", "todo"}
+_NO_BOOTSTRAP = {"version", "-h", "--help", "help", "install", "update", "sessions", "todo", "tools", "skills"}
 
 
 def _parse_global(argv):
