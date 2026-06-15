@@ -81,19 +81,25 @@ def _stats():
     return tools, skills, agents
 
 
+def _rule(width: int = 54) -> str:
+    return _c("2", "  " + "─" * width)
+
+
 def print_banner():
     print(_c("36;1", BANNER))
-    print(_c("2", "  Naraya-Agent"))
+    print("  " + _c("1", "Naraya-Agent") + _c("2", f"   v{__version__}"))
+    print(_rule())
     t, s, a = _stats()
-    parts = []
+    seg = []
     if t is not None:
-        parts.append(f"{t} tools")
+        seg.append(_c("36;1", f"{t}") + _c("2", " tools"))
     if s is not None:
-        parts.append(f"{s} skills")
+        seg.append(_c("36;1", f"{s}") + _c("2", " skills"))
     if a is not None:
-        parts.append(f"{a} agen")
-    if parts:
-        print(_c("36", "  " + "   ·   ".join(parts)))
+        seg.append(_c("36;1", f"{a}") + _c("2", " agen"))
+    if seg:
+        print("  " + _c("2", "  ·  ").join(seg))
+    print(_rule())
     print()
 
 
@@ -141,6 +147,8 @@ def _bootstrap(force: bool = False):
 def _register_global_command() -> bool:
     """Daftarkan perintah global `naraya` (pip install -e .) agar bisa dipakai dari mana saja."""
     import subprocess
+    # setuptools lawas tak dukung editable PEP 660 -> upgrade dulu (best-effort)
+    _pip(["-U", "pip", "setuptools", "wheel"])
     base = [sys.executable, "-m", "pip", "install", "-q", "-e", "."]
     for cmd in (base, base + ["--user"], base + ["--break-system-packages"]):
         try:
@@ -285,6 +293,101 @@ def cmd_gateway(args):
     gateway.run(args[0] if args else "telegram")
 
 
+def cmd_coders(args):
+    import coding_cli
+    if args and args[0] in ("install", "--install"):
+        print(coding_cli.install_coding_clis())
+    else:
+        print(coding_cli.status())
+        print("\nPasang Claude Code & Codex: naraya coders install")
+
+
+def cmd_install_coders(args):
+    import coding_cli
+    print(coding_cli.install_coding_clis())
+
+
+def _pick_provider():
+    """Pemilih provider interaktif (list bernomor)."""
+    import providers
+    names = providers.ORDER
+    active = providers.current_name()
+    print("Pilih provider:")
+    for i, n in enumerate(names, 1):
+        cfg = providers.resolve(n)
+        mark = "●" if n == active else " "
+        keyst = "key✓" if cfg["api_key"] else "key✗"
+        print(f"  {i:>2}. {mark} {providers.REGISTRY[n]['title']:<34} [{n}]  {keyst}")
+    try:
+        choice = input("Nomor/nama (ENTER batal): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print(); return
+    if not choice:
+        return
+    if choice.isdigit() and 1 <= int(choice) <= len(names):
+        choice = names[int(choice) - 1]
+    print(providers.set_provider(choice))
+    try:
+        import llm; llm.refresh()
+    except Exception:
+        pass
+
+
+def _pick_model():
+    """Pemilih model interaktif: ambil daftar dari provider aktif lalu pilih."""
+    import providers
+    print("Mengambil daftar model dari provider aktif ...")
+    models = providers.list_models()
+    if not models:
+        print("Tak bisa mengambil daftar otomatis (provider tak mendukung / tanpa key).")
+        try:
+            m = input("Ketik nama model (ENTER batal): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print(); return
+        if m:
+            print(providers.set_model(m))
+    else:
+        for i, m in enumerate(models, 1):
+            print(f"  {i:>2}. {m}")
+        try:
+            choice = input("Nomor/nama (ENTER batal): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print(); return
+        if not choice:
+            return
+        if choice.isdigit() and 1 <= int(choice) <= len(models):
+            choice = models[int(choice) - 1]
+        print(providers.set_model(choice))
+    try:
+        import llm; llm.refresh()
+    except Exception:
+        pass
+
+
+def cmd_providers(args):
+    import providers
+    if args:
+        print(providers.set_provider(args[0]))
+        try:
+            import llm; llm.refresh()
+        except Exception:
+            pass
+    else:
+        _pick_provider()
+
+
+def cmd_models(args):
+    import providers
+    if args:
+        print(providers.set_model(" ".join(args)))
+        try:
+            import llm; llm.refresh()
+        except Exception:
+            pass
+    else:
+        _pick_model()
+
+
 def cmd_chat(args):
     import llm, prompt_store, providers, session_store
     if not llm.is_available():
@@ -319,7 +422,7 @@ def cmd_chat(args):
         if low in ("/exit", "/quit", "exit", "quit"):
             break
         if low == "/help":
-            print(_c("2", "  /new  /sessions  /model <m>  /provider <p>  /work <goal>  /exit"))
+            print(_c("2", "  /new  /sessions  /models  /providers  /work <goal>  /exit"))
             continue
         if low == "/new":
             sess = session_store.create(); print(_c("2", f"  sesi baru: {sess['id']}")); continue
@@ -327,14 +430,14 @@ def cmd_chat(args):
             for s in session_store.list_sessions():
                 print(f"  {s['id']}  ({s['turns']} pesan)  {s['title']}")
             continue
-        if low.startswith("/model"):
-            parts = msg.split(maxsplit=1)
-            print(cmd_model(parts[1:] if len(parts) > 1 else []) or "", end="")
-            import llm as _l; _l.refresh(); sysp = prompt_store.get_active_prompt(); continue
-        if low.startswith("/provider"):
-            parts = msg.split()
-            cmd_provider(parts[1:]);
-            import llm as _l; _l.refresh(); cfg = providers.resolve(); continue
+        if low in ("/models", "/model"):
+            _pick_model(); sysp = prompt_store.get_active_prompt(); continue
+        if low.startswith("/model"):           # /model <nama-model>
+            cmd_models(msg.split(maxsplit=1)[1:]); sysp = prompt_store.get_active_prompt(); continue
+        if low in ("/providers", "/provider"):
+            _pick_provider(); cfg = providers.resolve(); continue
+        if low.startswith("/provider"):        # /provider <nama>
+            cmd_providers(msg.split()[1:]); cfg = providers.resolve(); continue
         if low.startswith("/work"):
             goal = msg[5:].strip()
             if not goal:
@@ -430,7 +533,8 @@ def cmd_sessions(args):
 
 COMMANDS = {
     "setup": cmd_setup, "install": cmd_install, "version": cmd_version, "doctor": cmd_doctor,
-    "provider": cmd_provider, "model": cmd_model, "gateway": cmd_gateway,
+    "provider": cmd_provider, "providers": cmd_providers, "model": cmd_model, "models": cmd_models,
+    "gateway": cmd_gateway, "coders": cmd_coders, "install-coders": cmd_install_coders,
     "chat": cmd_chat, "work": cmd_work, "agent": cmd_agent, "sessions": cmd_sessions,
     "eval": cmd_eval, "learn": cmd_learn, "daemon": cmd_daemon, "skills": cmd_skills,
 }

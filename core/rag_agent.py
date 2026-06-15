@@ -353,6 +353,20 @@ def ganti_provider(name: str) -> str:
     return msg
 
 
+@function_tool
+def claude_code(prompt: str) -> str:
+    """Delegasikan tugas coding ke Claude Code (CLI headless). Untuk implementasi/refactor kode pada proyek."""
+    import coding_cli
+    return coding_cli.claude_code(prompt)
+
+
+@function_tool
+def codex(prompt: str) -> str:
+    """Delegasikan tugas coding ke OpenAI Codex (CLI non-interaktif). Untuk implementasi/perbaikan kode."""
+    import coding_cli
+    return coding_cli.codex(prompt)
+
+
 ALL_TOOLS = [
     # orkestrasi multi-agen (mode kerja utama)
     orkestrasi_multiagent,
@@ -374,6 +388,8 @@ ALL_TOOLS = [
     rl_select, rl_feedback,
     # provider LLM
     daftar_provider, ganti_provider,
+    # agen coding eksternal
+    claude_code, codex,
     # MCP
     mcp_daftar_server, mcp_daftar_tool, mcp_panggil, mcp_tambah_server,
 ]

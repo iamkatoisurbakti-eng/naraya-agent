@@ -28,6 +28,7 @@ dan orkestrator tetap menghasilkan struktur laporan.
 
 from __future__ import annotations
 
+import re
 import json
 import time
 import sqlite3
@@ -380,7 +381,7 @@ def orchestrate(goal: str, agents: list[str] | None = None,
 
     return {"goal": goal, "agents": order, "mode": mode, "report": report, "summary": summary,
             "events": events, "revisions": revisions, "dynamic_agents": dyn_keys,
-            "agent_titles": {k: amap[k][0] for k in order}}
+            "agent_titles": {k: amap.get(k.split("#rev")[0], (k, "", False))[0] for k in order}}
 
 
 def _title_of(key: str, titles: dict | None = None) -> str:

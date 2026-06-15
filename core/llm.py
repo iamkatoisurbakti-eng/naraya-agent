@@ -94,6 +94,30 @@ def _get_client(provider: str | None = None):
     return _openai_client_for(cfg)
 
 
+def _create_compat(client, kwargs: dict):
+    """chat.completions.create yang tahan-banting: bila model menolak suatu parameter
+    (mis. temperature pada model reasoning), drop param itu lalu ulangi."""
+    k = dict(kwargs)
+    for _ in range(5):
+        try:
+            return client.chat.completions.create(**k)
+        except Exception as exc:
+            msg = str(exc).lower()
+            # model reasoning kadang minta max_completion_tokens, bukan max_tokens
+            if "max_completion_tokens" in msg and "max_tokens" in k:
+                k["max_completion_tokens"] = k.pop("max_tokens")
+                continue
+            dropped = False
+            for p in ("temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens"):
+                if p in k and p in msg:
+                    k.pop(p, None)
+                    dropped = True
+                    break
+            if not dropped:
+                raise
+    return client.chat.completions.create(**k)
+
+
 def chat(user: str, system: str | None = None, model: str | None = None,
          temperature: float = 0.3, max_tokens: int | None = None,
          provider: str | None = None) -> str:
@@ -119,7 +143,7 @@ def chat(user: str, system: str | None = None, model: str | None = None,
     kwargs: dict[str, Any] = {"model": mdl, "messages": messages, "temperature": temperature}
     if max_tokens:
         kwargs["max_tokens"] = max_tokens
-    res = client.chat.completions.create(**kwargs)
+    res = _create_compat(client, kwargs)
     return (res.choices[0].message.content or "").strip()
 
 
@@ -164,10 +188,10 @@ def chat_json(user: str, system: str | None = None, model: str | None = None,
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
     try:
-        res = client.chat.completions.create(
-            model=mdl, messages=messages, temperature=temperature,
-            response_format={"type": "json_object"},
-        )
+        res = _create_compat(client, {
+            "model": mdl, "messages": messages, "temperature": temperature,
+            "response_format": {"type": "json_object"},
+        })
         return _extract_json(res.choices[0].message.content or "")
     except LLMUnavailable:
         raise

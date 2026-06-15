@@ -673,6 +673,7 @@ TOOL_NAMES = [
     "send_message", "home_assistant", "automate_schedule",
     "rl_select", "rl_feedback",
     "daftar_provider", "ganti_provider",
+    "claude_code", "codex",
     "mcp_daftar_server", "mcp_daftar_tool", "mcp_panggil", "mcp_tambah_server",
 ]
 TOOL_COUNT = len(TOOL_NAMES)

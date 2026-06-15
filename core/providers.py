@@ -170,6 +170,24 @@ def set_model(model: str) -> str:
     return f"Model aktif: {model or '(default provider)'} · provider: {cfg['title']}"
 
 
+def list_models(limit: int = 60) -> list[str]:
+    """Ambil daftar model dari provider aktif (best-effort). Kosong bila tak didukung."""
+    cfg = resolve()
+    if not cfg["api_key"]:
+        return []
+    try:
+        if cfg["style"] == "anthropic":
+            import anthropic
+            c = anthropic.Anthropic(api_key=cfg["api_key"])
+            return [m.id for m in c.models.list().data][:limit]
+        import llm
+        c = llm._get_client()
+        ids = [m.id for m in c.models.list().data]
+        return sorted(ids)[:limit]
+    except Exception:
+        return []
+
+
 def list_providers() -> str:
     """Daftar provider + status key + mana yang aktif."""
     active = current_name()
